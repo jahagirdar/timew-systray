@@ -1,56 +1,43 @@
-import dearpygui.dearpygui as dpg
-import time
+import threading
+import pystray
 import asyncio
 import subprocess
-
-rows=['status','start','Current','Total']
-def save_callback():
-    print("Save Clicked")
-
-def dpg_init():
-    dpg.create_context()
-    dpg.create_viewport(width=400,height=100,decorated=False,disable_close=True,min_width=0,min_height=0,x_pos=-1)
-    dpg.set_viewport_always_top(True)
-    dpg.setup_dearpygui()
+import time
+from PIL import Image, ImageDraw
 
 
-    with dpg.window(label='',no_scrollbar=True,min_size=[0,0],autosize=True,no_title_bar=True,no_background=True,no_collapse=True):
-        for r in rows:
-            dpg.add_text(default_value=r,tag=r)
+def create_image(width, height, color1, color2):
+    # Generate an image and draw a pattern
+    image = Image.new('RGB', (width, height), color1)
+    dc = ImageDraw.Draw(image)
+    dc.rectangle(
+        (width // 2, 0, width, height // 2),
+        fill=color2)
+    dc.rectangle(
+        (0, height // 2, width // 2, height),
+        fill=color2)
 
-    dpg.show_viewport()
-    dpg.render_dearpygui_frame()
-async def dpg_loop():
-    while dpg.is_dearpygui_running():
-        dpg.render_dearpygui_frame()
-        await asyncio.sleep(1)
-    dpg.destroy_context()
-
-async def checktimew():
-    while True:
-        tw=subprocess.run(['timew'],capture_output=True)
-        if tw.returncode == 0:
-            rw=tw.stdout.split(b'\n')
-            for i,e in enumerate(rows):
-                dpg.configure_item(e,default_value=rw[i],show=True)
-        else:
-            dpg.configure_item('status',default_value="Tracker off")
-            for i in range(3):
-                dpg.configure_item(rows[i+1],show=False)
-        await asyncio.sleep(15)
-        # print('Hello sleepy...')
-
-async def main():
-    print('Hello ...')
-    dpg_init()
-    await asyncio.sleep(1)
-    print('... World!')
-    await asyncio.gather(
-       dpg_loop(),
-       #checksleep(),
-       checktimew()
-       )
+    return image
 
 
+# In order for the icon to be displayed, you must provide an icon
+icon = pystray.Icon(
+    'test name',
+    icon=create_image(64, 64, 'black', 'white'))
 
-asyncio.run(main())
+
+threading.Thread(target=icon.run).start()
+# To finally show you icon, call run
+#icon.run_detached()
+on_img=Image.open('timew_on.png')
+off_img=Image.open('timew_off.png')
+while True:
+    tw=subprocess.run(['timew'],capture_output=True)
+    if tw.returncode==0:
+        #icon.icon=create_image(64, 64, 'black', 'green')
+        icon.icon=on_img
+    else:
+        #icon.icon=create_image(64, 64, 'black', 'red')
+        icon.icon=off_img
+    icon.notify(message=str(tw.stdout))
+    time.sleep(600)
